@@ -36,7 +36,7 @@ class AtlasCreator
 	/**
 	 * If the output atlas images should be forced to a power of two.
 	 */
-	public var pot = true;
+	public var pot = false;
 
 	/**
 	 * The maximum width of a atlas texture.
@@ -134,6 +134,9 @@ class AtlasCreator
 		final packer   = new MaxRectsPacker(maxWidth, maxHeight, false);
 		final unpacked = new Array<Image>();
 		final packed   = new Array<PackedImage>();
+
+		var accWidth  = 0;
+		var accHeight = 0;
 	
 		for (size in _toPack)
 		{
@@ -152,6 +155,19 @@ class AtlasCreator
 			}
 			else
 			{
+				// Manually track the maximum packed width and height
+				// Will allow trimming the output image
+				final xMost = Std.int(rect.x) + paddedWidth;
+				final yMost = Std.int(rect.y) + paddedHeight;
+				if (xMost > accWidth)
+				{
+					accWidth = xMost;
+				}
+				if (yMost > accHeight)
+				{
+					accHeight = yMost;
+				}
+
 				packed.push({
 					path   : size.path,
 					width  : size.width,
@@ -170,8 +186,8 @@ class AtlasCreator
 		}
 	
 		_atlas.push({
-			width  : maxWidth,
-			height : maxHeight,
+			width  : if (pot) nextPot(accWidth) else accWidth,
+			height : if (pot) nextPot(accHeight) else accHeight,
 			images : packed
 		});
 	
@@ -179,6 +195,24 @@ class AtlasCreator
 		{
 			pack(unpacked, _atlas);
 		}
+	}
+
+	/**
+	 * Fetches the next power of two from the provided number.
+	 * @param _in Input number.
+	 * @return Int
+	 */
+	function nextPot(_in : Int) : Int
+	{
+		_in--;
+		_in |= _in >> 1;
+		_in |= _in >> 2;
+		_in |= _in >> 4;
+		_in |= _in >> 8;
+		_in |= _in >> 16;
+		_in++;
+
+		return _in;
 	}
 }
 
