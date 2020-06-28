@@ -1,9 +1,10 @@
-import tink.Cli;
 import sys.FileSystem;
 import sys.io.File;
 import haxe.Timer;
+import haxe.Exception;
 import haxe.io.Path;
 import haxe.ds.ReadOnlyArray;
+import tink.Cli;
 import binpacking.MaxRectsPacker;
 import Blit;
 
@@ -16,31 +17,59 @@ function main()
 
 class AtlasCreator
 {
-	@:flag('-d')
-	public var directory : String;
+	/**
+	 * The directory to read png images from.
+	 */
+	public var directory = '';
 
-	@:flag('-p')
+	/**
+	 * The directory to place all produced atlas images and the definition file.
+	 */
+	public var output = '';
+
+	/**
+	 * Name of the atlas.
+	 * The produced json definition file will be `name.json` and the images will `name_$i.png`, where `$i` is the image index.
+	 */
+	public var name = 'atlas';
+
+	/**
+	 * If the output atlas images should be forced to a power of two.
+	 */
 	public var pot = true;
 
-	@:flag('-w')
-	public var maxWidth = 2048;
+	/**
+	 * The maximum width of a atlas texture.
+	 */
+	@:flag('width') public var maxWidth = 2048;
 
-	@:flag('-h')
-	public var maxHeight = 2048;
+	/**
+	 * The maximum height of a atlas texture.
+	 */
+	@:flag('height') public var maxHeight = 2048;
 
-	@:flag('-x')
-	public var xPad = 0;
+	/**
+	 * Number of pixels to add to the left and right hand side of each packed image.
+	 */
+	@:flag('x-pad') public var xPad = 0;
 
-	@:flag('-y')
-	public var yPad = 0;
+	/**
+	 * Number of pixels to add to the top and bottom of each packed image.
+	 */
+	@:flag('y-pad') public var yPad = 0;
 
-	@:flag('-t')
+	/**
+	 * Number of threads to use when writing atlas pages.
+	 */
 	public var threads = 8;
 
 	public function new() {}
 
-	@:defaultCommand
-	public function create()
+	/**
+	 * Packs a directory of png images into atlas images and produces a json file mapping each file packed to its location in the atlas.
+	 * Multiple atlas images will be produced if needed to pack all the images.
+	 */
+	@:defaultCommand public function create()
 	{
 		final files = FileSystem.readDirectory(directory)
 			.map(f -> new Path(Path.join([ directory, f ])))
@@ -51,13 +80,27 @@ class AtlasCreator
 				return isFile && isPng;
 			});
 		final rects = [ for (f in files) readSize(f.toString()) ];
-		final pages = [];
+		final atlas = [];
 
-		pack(rects, pages);
+		pack(rects, atlas);
 
-		Timer.measure(() -> write(pages, threads));
+		Timer.measure(() -> write(atlas, threads));
 	}
 
+	/**
+	 * Prints this help document
+	 */
+	@:command public function help()
+	{
+		Sys.println(Cli.getDoc(this));
+	}
+
+	/**
+	 * Opens a stream and seeks to the width and height bytes of the png header.
+	 * Should probably be more robust and check for png magic bytes IHDR chunk.
+	 * @param _path Path of the image to inspect.
+	 * @return Immutable image object with the width, height, padding, and path inside.
+	 */
 	function readSize(_path) : Image
 	{
 		final input = File.read(_path);
@@ -79,23 +122,30 @@ class AtlasCreator
 		}
 	}
 	
+	/**
+	 * Recursivly packs images into as many atlases as needed until all have been processed.
+	 * @throws ImageTooLargeException When a padded image exceeds the maximum atlas size.
+	 * @throws NoImagesPackedException When a iteration fails to pack any images for some reason.
+	 * @param _toPack The remaining images to be packed.
+	 * @param _atlas All atlases generated thus far.
+	 */
 	function pack(_toPack : Array<Image>, _atlas : Array<PackedAtlas>)
 	{
-		final maxWidth  = maxWidth;
-		final maxHeight = maxHeight;
-		final packer    = new MaxRectsPacker(maxWidth, maxHeight, false);
-	
+		final packer   = new MaxRectsPacker(maxWidth, maxHeight, false);
 		final unpacked = new Array<Image>();
 		final packed   = new Array<PackedImage>();
 	
 		for (size in _toPack)
 		{
-			if (size.width > maxWidth || size.height > maxHeight)
+			final paddedWidth  = size.width + (size.xPad * 2);
+			final paddedHeight = size.height + (size.yPad * 2);
+
+			if (size.width > paddedWidth || size.height > paddedHeight)
 			{
-				throw 'rectangle exceeds max page size';
+				throw new ImageTooLargeException(paddedWidth, paddedHeight, maxWidth, maxHeight);
 			}
 	
-			final rect = packer.insert(size.width + (size.xPad * 2), size.height + (size.xPad * 2), BestShortSideFit);
+			final rect = packer.insert(paddedWidth, paddedHeight, BestShortSideFit);
 			if (rect == null)
 			{
 				unpacked.push(size);
@@ -116,7 +166,7 @@ class AtlasCreator
 	
 		if (packed.length == 0)
 		{
-			throw 'failed to pack any images';
+			throw new NoImagesPackedException();
 		}
 	
 		_atlas.push({
@@ -129,6 +179,22 @@ class AtlasCreator
 		{
 			pack(unpacked, _atlas);
 		}
+	}
+}
+
+class ImageTooLargeException extends Exception
+{
+	public function new(_width : Int, _height : Int, _maxWidth : Int, _maxHeight : Int)
+	{
+		super('image of size $_width x $_height exceeds the maximum page size of $_maxWidth x $_maxHeight');
+	}
+}
+
+class NoImagesPackedException extends Exception
+{
+	public function new()
+	{
+		super('No images were packed in this iteration');
 	}
 }
 
