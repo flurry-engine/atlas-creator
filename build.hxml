@@ -4,6 +4,7 @@
 -L bin-packing
 -L linc_stb
 -L haxe-concurrent
+-L tink_cli
 -D HXCPP_M64
 -D HXCPP_GC_BIG_BLOCKS
 -D HXCPP_GC_GENERATIONAL

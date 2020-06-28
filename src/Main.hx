@@ -1,3 +1,4 @@
+import tink.Cli;
 import sys.FileSystem;
 import sys.io.File;
 import haxe.Timer;
@@ -10,85 +11,137 @@ using Lambda;
 
 function main()
 {
-	final dir   = Sys.args()[0];
-	final files = FileSystem.readDirectory(dir).map(f -> Path.join([ dir, f ]));
-	final rects = [ for (f in files) readSize(f) ];
-	final pages = [];
-
-	pack(rects, pages);
-
-	Timer.measure(() -> write(pages));
+	Cli.process(Sys.args(), new AtlasCreator()).handle(Cli.exit);
 }
 
-function readSize(_path) : Image
+class AtlasCreator
 {
-	final input = File.read(_path);
-	input.bigEndian = true;
+	@:flag('-d')
+	public var directory : String;
 
-	input.seek(16, SeekBegin);
-	final width = input.readInt32();
-	input.seek(20, SeekBegin);
-	final height = input.readInt32();
+	@:flag('-p')
+	public var pot = true;
 
-	input.close();
+	@:flag('-w')
+	public var maxWidth = 2048;
 
-	return { width : width, height : height, path : _path }
-}
+	@:flag('-h')
+	public var maxHeight = 2048;
 
-function pack(_toPack : Array<Image>, _atlas : Array<PackedAtlas>)
-{
-	final maxWidth  = 4096;
-	final maxHeight = 4096;
-	final packer    = new MaxRectsPacker(maxWidth, maxHeight, false);
+	@:flag('-x')
+	public var xPad = 0;
 
-	final unpacked = new Array<Image>();
-	final packed   = new Array<PackedImage>();
+	@:flag('-y')
+	public var yPad = 0;
 
-	for (size in _toPack)
+	@:flag('-t')
+	public var threads = 8;
+
+	public function new() {}
+
+	@:defaultCommand
+	public function create()
 	{
-		if (size.width > maxWidth || size.height > maxHeight)
-		{
-			throw 'rectangle exceeds max page size';
-		}
+		final files = FileSystem.readDirectory(directory)
+			.map(f -> new Path(Path.join([ directory, f ])))
+			.filter(f -> {
+				final isFile = !FileSystem.isDirectory(f.toString());
+				final isPng  = f.ext == 'png';
 
-		final rect = packer.insert(size.width, size.height, BestShortSideFit);
-		if (rect == null)
-		{
-			unpacked.push(size);
-		}
-		else
-		{
-			packed.push({
-				path   : size.path,
-				width  : size.width,
-				height : size.height,
-				x      : Std.int(rect.x),
-				y      : Std.int(rect.y)
+				return isFile && isPng;
 			});
+		final rects = [ for (f in files) readSize(f.toString()) ];
+		final pages = [];
+
+		pack(rects, pages);
+
+		Timer.measure(() -> write(pages, threads));
+	}
+
+	function readSize(_path) : Image
+	{
+		final input = File.read(_path);
+		input.bigEndian = true;
+	
+		input.seek(16, SeekBegin);
+		final width = input.readInt32();
+		input.seek(20, SeekBegin);
+		final height = input.readInt32();
+	
+		input.close();
+	
+		return {
+			width  : width,
+			height : height,
+			xPad   : xPad,
+			yPad   : yPad,
+			path   : _path
 		}
 	}
-
-	if (packed.length == 0)
+	
+	function pack(_toPack : Array<Image>, _atlas : Array<PackedAtlas>)
 	{
-		throw 'failed to pack any images';
-	}
-
-	_atlas.push({
-		width  : maxWidth,
-		height : maxHeight,
-		images : packed
-	});
-
-	if (unpacked.length > 0)
-	{
-		pack(unpacked, _atlas);
+		final maxWidth  = maxWidth;
+		final maxHeight = maxHeight;
+		final packer    = new MaxRectsPacker(maxWidth, maxHeight, false);
+	
+		final unpacked = new Array<Image>();
+		final packed   = new Array<PackedImage>();
+	
+		for (size in _toPack)
+		{
+			if (size.width > maxWidth || size.height > maxHeight)
+			{
+				throw 'rectangle exceeds max page size';
+			}
+	
+			final rect = packer.insert(size.width + (size.xPad * 2), size.height + (size.xPad * 2), BestShortSideFit);
+			if (rect == null)
+			{
+				unpacked.push(size);
+			}
+			else
+			{
+				packed.push({
+					path   : size.path,
+					width  : size.width,
+					height : size.height,
+					xPad   : size.xPad,
+					yPad   : size.yPad,
+					x      : Std.int(rect.x),
+					y      : Std.int(rect.y)
+				});
+			}
+		}
+	
+		if (packed.length == 0)
+		{
+			throw 'failed to pack any images';
+		}
+	
+		_atlas.push({
+			width  : maxWidth,
+			height : maxHeight,
+			images : packed
+		});
+	
+		if (unpacked.length > 0)
+		{
+			pack(unpacked, _atlas);
+		}
 	}
 }
 
 @:structInit class Image
 {
 	public final width : Int;
+	
 	public final height : Int;
+
+	public final xPad : Int;
+
+	public final yPad : Int;
+
 	public final path : String;
 }
 
@@ -102,6 +155,8 @@ function pack(_toPack : Array<Image>, _atlas : Array<PackedAtlas>)
 @:structInit class PackedAtlas
 {
 	public final width : Int;
+
 	public final height : Int;
+
 	public final images : ReadOnlyArray<PackedImage>;
 }
