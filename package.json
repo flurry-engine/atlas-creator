@@ -1,8 +1,21 @@
 {
-	"devDependencies": {
-		"lix": "^15.9.0"
-	},
-	"scripts": {
-		"postinstall": "lix download"
-	}
+  "scripts": {
+    "postinstall": "lix download"
+  },
+  "name": "atlas-creator",
+  "description": "This is an example Haxe project scaffolded by Visual Studio Code.",
+  "version": "1.0.0",
+  "dependencies": {
+    "lix": "git+https://git@github.com/aidan63/lix.client.git"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/flurry-engine/atlas-creator.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/flurry-engine/atlas-creator/issues"
+  },
+  "homepage": "https://github.com/flurry-engine/atlas-creator#readme"
 }

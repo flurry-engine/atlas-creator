@@ -1,0 +1,44 @@
+name: Unix
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: bash
+    
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: node install
+      uses: actions/setup-node@v1
+      with:
+        node-version: 12.x
+    - name: lix restore
+      run: npm ci
+    - name: hxcpp setup
+      run: |
+        cd $(npx haxelib path hxcpp | tail -1 | tr -d '\n')
+        npm install lix
+        cd tools/hxcpp
+        npx haxe compile.hxml
+    - name: build
+      run: npx haxe build.hxml
+    - run: tar -czvf ${{ matrix.os }}.tar.gz -C bin/cpp atlas-creator
+    - name: Upload Artefacts
+      uses: AButler/upload-release-assets@v2.0
+      with:
+        files: '${{ matrix.os }}.tar.gz'
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        release-tag: CI
