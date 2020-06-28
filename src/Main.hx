@@ -4,7 +4,7 @@ import haxe.Timer;
 import haxe.io.Path;
 import haxe.ds.ReadOnlyArray;
 import binpacking.MaxRectsPacker;
-import StbBlit;
+import Blit;
 
 using Lambda;
 
