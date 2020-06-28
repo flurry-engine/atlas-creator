@@ -1,0 +1,11 @@
+-p src
+-D analyzer-optimize
+-L format
+-L bin-packing
+-L linc_stb
+-L haxe-concurrent
+-D HXCPP_M64
+-D HXCPP_GC_BIG_BLOCKS
+-D HXCPP_GC_GENERATIONAL
+-main Main
+--cpp bin/cpp
