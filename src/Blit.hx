@@ -20,11 +20,18 @@ function writeImages(_pages : Array<PackedPage>, _threads : Int)
             {
                 blit(image, bytes, page.width);
             }
-    
-            final output = File.write(page.path.toString());
-            final writer = new Writer(output);
-            writer.write(Tools.build32BGRA(4096, 4096, bytes));
-            output.close();
+            
+            if (page.path.ext == 'raw')
+            {
+                File.saveBytes(page.path.toString(), bytes);
+            }
+            else
+            {
+                final output = File.write(page.path.toString());
+                final writer = new Writer(output);
+                writer.write(Tools.build32BGRA(4096, 4096, bytes));
+                output.close();
+            }
         });
     }
 

@@ -1,7 +1,6 @@
 import Types;
 import sys.FileSystem;
 import sys.io.File;
-import haxe.Timer;
 import haxe.Exception;
 import haxe.io.Path;
 import haxe.ds.ReadOnlyArray;
@@ -40,6 +39,11 @@ class AtlasCreator
 	public var pot = false;
 
 	/**
+	 * If enabled the output atlas pages will not be png files but instead raw BGRA bytes.
+	 */
+	public var raw = false;
+
+	/**
 	 * The maximum width of a atlas texture.
 	 */
 	@:flag('width') public var maxWidth = 2048;
@@ -72,6 +76,8 @@ class AtlasCreator
 	 */
 	@:defaultCommand public function create()
 	{
+		FileSystem.createDirectory(output);
+
 		final files = FileSystem.readDirectory(directory)
 			.map(f -> new Path(Path.join([ directory, f ])))
 			.filter(f -> {
@@ -83,14 +89,9 @@ class AtlasCreator
 		final rects = [ for (f in files) readSize(f) ];
 		final atlas = [];
 
-		pack(rects, atlas, 0);
-
-		Timer.measure(() -> {
-			FileSystem.createDirectory(output);
-			
-			writeImages(atlas, threads);
-			writeJson(atlas);
-		});
+		pack(rects, atlas, 0);		
+		writeImages(atlas, threads);
+		writeJson(atlas);
 	}
 
 	/**
@@ -192,7 +193,7 @@ class AtlasCreator
 		}
 	
 		_pages.push({
-			path   : new Path(Path.join([ output, '$name-$_count.png' ])),
+			path   : new Path(Path.join([ output, '$name-$_count.${ pageExtension() }' ])),
 			width  : if (pot) nextPot(accWidth) else accWidth,
 			height : if (pot) nextPot(accHeight) else accHeight,
 			images : packed
@@ -250,6 +251,8 @@ class AtlasCreator
 
 		return _in;
 	}
+
+	function pageExtension() return if (raw) 'raw' else 'png';
 }
 
 class ImageTooLargeException extends Exception

@@ -1,3 +1,4 @@
+import sys.io.File;
 import haxe.io.Bytes;
 import Main.PackedPage;
 import Main.PackedImage;
@@ -19,8 +20,28 @@ function writeImages(_pages : Array<PackedPage>, _threads : Int)
             {
                 blit(image, bytes, page.width);
             }
-    
-            ImageWrite.write_png(page.path.toString(), page.width, page.height, bpp, bytes.getData(), 0, bytes.length, page.width * bpp);
+
+            if (page.path.ext == 'raw')
+            {
+                final ptr = cpp.Pointer.arrayElem(bytes.getData(), 0);
+
+                for (i in 0...page.width * page.height)
+                {
+                    // image_stb stores in RGBA but we want BGRA
+
+                    final offset = i * bpp;
+                    final r = ptr[offset];
+
+                    ptr[offset + 0] = ptr[offset + 2];
+                    ptr[offset + 2] = r;
+                }
+
+                File.saveBytes(page.path.toString(), bytes);
+            }
+            else
+            {
+                ImageWrite.write_png(page.path.toString(), page.width, page.height, bpp, bytes.getData(), 0, bytes.length, page.width * bpp);
+            }
         });
     }
 

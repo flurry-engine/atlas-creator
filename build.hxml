@@ -9,5 +9,6 @@
 -D HXCPP_M64
 -D HXCPP_GC_BIG_BLOCKS
 -D HXCPP_GC_GENERATIONAL
+-D HAXE_OUTPUT_FILE=atlas-creator
 -main Main
 --cpp bin/cpp
