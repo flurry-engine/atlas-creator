@@ -1,3 +1,4 @@
+import Types;
 import sys.FileSystem;
 import sys.io.File;
 import haxe.Timer;
@@ -79,12 +80,17 @@ class AtlasCreator
 
 				return isFile && isPng;
 			});
-		final rects = [ for (f in files) readSize(f.toString()) ];
+		final rects = [ for (f in files) readSize(f) ];
 		final atlas = [];
 
-		pack(rects, atlas);
+		pack(rects, atlas, 0);
 
-		Timer.measure(() -> write(atlas, threads));
+		Timer.measure(() -> {
+			FileSystem.createDirectory(output);
+			
+			writeImages(atlas, threads);
+			writeJson(atlas);
+		});
 	}
 
 	/**
@@ -101,9 +107,9 @@ class AtlasCreator
 	 * @param _path Path of the image to inspect.
 	 * @return Immutable image object with the width, height, padding, and path inside.
 	 */
-	function readSize(_path) : Image
+	function readSize(_path : Path) : Image
 	{
-		final input = File.read(_path);
+		final input = File.read(_path.toString());
 		input.bigEndian = true;
 	
 		input.seek(16, SeekBegin);
@@ -127,9 +133,9 @@ class AtlasCreator
 	 * @throws ImageTooLargeException When a padded image exceeds the maximum atlas size.
 	 * @throws NoImagesPackedException When a iteration fails to pack any images for some reason.
 	 * @param _toPack The remaining images to be packed.
-	 * @param _atlas All atlases generated thus far.
+	 * @param _pages All atlas pages generated thus far.
 	 */
-	function pack(_toPack : Array<Image>, _atlas : Array<PackedAtlas>)
+	function pack(_toPack : Array<Image>, _pages : Array<PackedPage>, _count : Int)
 	{
 		final packer   = new MaxRectsPacker(maxWidth, maxHeight, false);
 		final unpacked = new Array<Image>();
@@ -185,7 +191,8 @@ class AtlasCreator
 			throw new NoImagesPackedException();
 		}
 	
-		_atlas.push({
+		_pages.push({
+			path   : new Path(Path.join([ output, '$name-$_count.png' ])),
 			width  : if (pot) nextPot(accWidth) else accWidth,
 			height : if (pot) nextPot(accHeight) else accHeight,
 			images : packed
@@ -193,7 +200,36 @@ class AtlasCreator
 	
 		if (unpacked.length > 0)
 		{
-			pack(unpacked, _atlas);
+			pack(unpacked, _pages, _count + 1);
+		}
+	}
+
+	function writeJson(_pages : Array<PackedPage>)
+	{
+		File.saveContent(Path.join([ output, '$name.json' ]), tink.Json.stringify({
+			name  : name,
+			pages : [ for (i => page in _pages) writePage(page, i) ]
+		}));
+	}
+
+	function writePage(_page : PackedPage, _index : Int) : PageJson
+	{
+		return {
+			image  : '${ _page.path.file }.${ _page.path.ext }',
+			width  : _page.width,
+			height : _page.height,
+			packed : [ for (r in _page.images) writeRect(r) ]
+		}
+	}
+
+	function writeRect(_rect : PackedImage) : ImageJson
+	{
+		return {
+			x      : _rect.x + _rect.xPad,
+			y      : _rect.y + _rect.yPad,
+			width  : _rect.width,
+			height : _rect.height,
+			file   : _rect.path.file
 		}
 	}
 
@@ -242,7 +278,7 @@ class NoImagesPackedException extends Exception
 
 	public final yPad : Int;
 
-	public final path : String;
+	public final path : Path;
 }
 
 @:structInit class PackedImage extends Image
@@ -252,8 +288,10 @@ class NoImagesPackedException extends Exception
 	public final y : Int;
 }
 
-@:structInit class PackedAtlas
+@:structInit class PackedPage
 {
+	public final path : Path;
+
 	public final width : Int;
 
 	public final height : Int;

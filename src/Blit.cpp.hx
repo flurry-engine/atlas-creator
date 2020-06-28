@@ -1,26 +1,26 @@
 import haxe.io.Bytes;
-import Main.PackedAtlas;
+import Main.PackedPage;
 import Main.PackedImage;
 import stb.Image;
 import stb.ImageWrite;
 import hx.concurrent.thread.ThreadPool;
 
-function write(_atlas : Array<PackedAtlas>, _threads : Int)
+function writeImages(_pages : Array<PackedPage>, _threads : Int)
 {
     final pool = new ThreadPool(_threads);
 
-    for (i => atlas in _atlas)
+    for (page in _pages)
     {
         pool.submit(ctx -> {
             final bpp   = 4;
-            final bytes = Bytes.alloc(atlas.width * atlas.height * bpp);
+            final bytes = Bytes.alloc(page.width * page.height * bpp);
 
-            for (image in atlas.images)
+            for (image in page.images)
             {
-                copy(image, bytes, atlas.width);
+                blit(image, bytes, page.width);
             }
     
-            ImageWrite.write_png('out_$i.png', atlas.width, atlas.height, bpp, bytes.getData(), 0, bytes.length, atlas.width * bpp);
+            ImageWrite.write_png(page.path.toString(), page.width, page.height, bpp, bytes.getData(), 0, bytes.length, page.width * bpp);
         });
     }
 
@@ -28,9 +28,9 @@ function write(_atlas : Array<PackedAtlas>, _threads : Int)
     pool.stop();
 }
 
-private function copy(_image : PackedImage, _out : Bytes, _outWidth : Int)
+private function blit(_image : PackedImage, _out : Bytes, _outWidth : Int)
 {
-    final data = Image.load(_image.path, 4);
+    final data = Image.load(_image.path.toString(), 4);
     final raw  = data.bytes;
     final bpp  = data.req_comp;
     final dst  = _out.getData();
