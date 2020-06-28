@@ -1,4 +1,4 @@
-name: Unix
+name: Build
 
 on:
   push:
@@ -38,9 +38,10 @@ jobs:
     - name: package
       run: |
         if [ -f "bin/cpp/atlas-creator.exe" ]; then
-          mv bin/cpp/atlas-creator.exe bin/cpp/atlas-creator
+          tar -czvf ${{ matrix.os }}.tar.gz -C bin/cpp atlas-creator.exe
+        else
+          tar -czvf ${{ matrix.os }}.tar.gz -C bin/cpp atlas-creator
         fi
-        tar -czvf ${{ matrix.os }}.tar.gz -C bin/cpp atlas-creator
     - name: Upload Artefacts
       uses: AButler/upload-release-assets@v2.0
       with:
