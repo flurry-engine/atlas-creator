@@ -29,13 +29,18 @@ jobs:
       run: npm ci
     - name: hxcpp setup
       run: |
-        cd $(npx haxelib path hxcpp | tail -1 | tr -d '\n')
+        cd $(npx haxelib path hxcpp 2>&1 | head -n 1)
         npm install lix
         cd tools/hxcpp
         npx haxe compile.hxml
     - name: build
       run: npx haxe build.hxml
-    - run: tar -czvf ${{ matrix.os }}.tar.gz -C bin/cpp atlas-creator
+    - name: package
+      run: |
+        if [ -f "bin/cpp/atlas-creator.exe" ]; then
+          mv bin/cpp/atlas-creator.exe bin/cpp/atlas-creator
+        fi
+        tar -czvf ${{ matrix.os }}.tar.gz -C bin/cpp atlas-creator
     - name: Upload Artefacts
       uses: AButler/upload-release-assets@v2.0
       with:
