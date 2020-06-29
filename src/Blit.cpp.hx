@@ -5,7 +5,6 @@ import Main.PackedImage;
 import stb.Image;
 import stb.ImageWrite;
 import hx.concurrent.thread.ThreadPool;
-import format.jpg.Writer;
 
 function writeImages(_pages : Array<PackedPage>, _threads : Int)
 {
@@ -39,39 +38,12 @@ function writeImages(_pages : Array<PackedPage>, _threads : Int)
                     }
     
                     File.saveBytes(page.path.toString(), bytes);
-                case 'dxt':
-                    //
                 case 'jpeg':
-                    final ptr = cpp.Pointer.arrayElem(bytes.getData(), 0);
-
-                    for (i in 0...page.width * page.height)
-                    {
-                        // image_stb stores in RGBA but we want ARGB
-    
-                        final offset = i * bpp;
-                        final r = ptr[offset + 0];
-                        final g = ptr[offset + 1];
-                        final b = ptr[offset + 2];
-                        final a = ptr[offset + 3];
-    
-                        ptr[offset + 0] = a;
-                        ptr[offset + 1] = r;
-                        ptr[offset + 2] = g;
-                        ptr[offset + 3] = b;
-                    }
-
-                    final output = File.write(page.path.toString());
-                    final writer = new Writer(output);
-                    writer.write({
-                        width   : page.width,
-                        height  : page.height,
-                        quality : 90,
-                        pixels  : bytes
-                    });
-                    output.close();
+                    ImageWrite.write_jpg(page.path.toString(), page.width, page.height, bpp, bytes.getData(), 0, bytes.length, 90);
                 case 'png':
                     ImageWrite.write_png(page.path.toString(), page.width, page.height, bpp, bytes.getData(), 0, bytes.length, page.width * bpp);
-                case _:
+                case other:
+                    throw '$other is not supported on the hxcpp blitter';
             }
         });
     }
