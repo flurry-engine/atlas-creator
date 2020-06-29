@@ -41,7 +41,7 @@ class AtlasCreator
 	/**
 	 * If enabled the output atlas pages will not be png files but instead raw BGRA bytes.
 	 */
-	public var raw = false;
+	public var format = 'png';
 
 	/**
 	 * The maximum width of a atlas texture.
@@ -193,7 +193,7 @@ class AtlasCreator
 		}
 	
 		_pages.push({
-			path   : new Path(Path.join([ output, '$name-$_count.${ pageExtension() }' ])),
+			path   : new Path(Path.join([ output, '$name-$_count.$format' ])),
 			width  : if (pot) nextPot(accWidth) else accWidth,
 			height : if (pot) nextPot(accHeight) else accHeight,
 			images : packed
@@ -251,8 +251,6 @@ class AtlasCreator
 
 		return _in;
 	}
-
-	function pageExtension() return if (raw) 'raw' else 'png';
 }
 
 class ImageTooLargeException extends Exception

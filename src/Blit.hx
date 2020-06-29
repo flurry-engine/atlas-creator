@@ -2,9 +2,10 @@ import sys.io.File;
 import haxe.io.Bytes;
 import Main.PackedPage;
 import Main.PackedImage;
-import format.png.Tools;
-import format.png.Writer;
-import format.png.Reader;
+import format.png.Tools as PngTools;
+import format.png.Writer as PngWriter;
+import format.png.Reader as PngReader;
+import format.jpg.Writer as JpgWriter;
 import hx.concurrent.thread.ThreadPool;
 
 function writeImages(_pages : Array<PackedPage>, _threads : Int)
@@ -21,16 +22,27 @@ function writeImages(_pages : Array<PackedPage>, _threads : Int)
                 blit(image, bytes, page.width);
             }
             
-            if (page.path.ext == 'raw')
+            switch page.path.ext
             {
-                File.saveBytes(page.path.toString(), bytes);
-            }
-            else
-            {
-                final output = File.write(page.path.toString());
-                final writer = new Writer(output);
-                writer.write(Tools.build32BGRA(4096, 4096, bytes));
-                output.close();
+                case 'png':
+                    final output = File.write(page.path.toString());
+                    final writer = new PngWriter(output);
+                    writer.write(PngTools.build32BGRA(4096, 4096, bytes));
+                    output.close();
+                case 'raw':
+                    File.saveBytes(page.path.toString(), bytes);
+                case 'jpeg', 'jpg':
+                    final output = File.write(page.path.toString());
+                    final writer = new JpgWriter(output);
+                    writer.write({
+                        width   : page.width,
+                        height  : page.height,
+                        quality : 90,
+                        pixels  : { PngTools.reverseBytes(bytes); bytes; }
+                    });
+                    output.close();
+                case other:
+                    throw '$other is not supported on the haxe blitter';
             }
         });
     }
@@ -43,8 +55,8 @@ private function blit(_image : PackedImage, _out : Bytes, _outWidth : Int)
 {
     final bpp    = 4;
     final input  = File.read(_image.path.toString());
-    final reader = new Reader(input);
-    final pixels = Tools.extract32(reader.read());
+    final reader = new PngReader(input);
+    final pixels = PngTools.extract32(reader.read());
     final srcX   = _image.x + _image.xPad;
     final srcY   = _image.y + _image.yPad;
     input.close();
