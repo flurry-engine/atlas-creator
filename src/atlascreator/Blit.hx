@@ -8,17 +8,20 @@ import format.png.Tools as PngTools;
 import format.png.Writer as PngWriter;
 import format.png.Reader as PngReader;
 import format.jpg.Writer as JpgWriter;
-import hx.concurrent.thread.ThreadPool;
 
 class Blit
 {
     public static function writeImages(_pages : Array<PackedPage>, _threads : Int)
     {
-        final pool = new ThreadPool(_threads);
+#if haxe_concurrent
+        static final pool = new hx.concurrent.thread.ThreadPool(_threads);
+#end
 
         for (page in _pages)
         {
+#if haxe_concurrent
             pool.submit(ctx -> {
+#end
                 final bytes = Bytes.alloc(page.width * page.height * 4);
 
                 for (image in page.images)
@@ -48,11 +51,15 @@ class Blit
                     case other:
                         throw '$other is not supported on the haxe blitter';
                 }
+#if haxe_concurrent
             });
+#end
         }
 
+#if haxe_concurrent
         pool.awaitCompletion(-1);
         pool.stop();
+#end
     }
 
     static function blit(_image : PackedImage, _out : Bytes, _outWidth : Int)
