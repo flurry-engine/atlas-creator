@@ -10,5 +10,6 @@
 -D HXCPP_GC_BIG_BLOCKS
 -D HAXE_OUTPUT_FILE=atlas-creator
 -m atlascreator.cli.AtlasCreator
+--macro nullSafety('atlascreator', Strict)
 --no-traces
 --cpp bin/cpp
