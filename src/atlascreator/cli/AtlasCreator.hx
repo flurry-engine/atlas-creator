@@ -1,22 +1,25 @@
-import Types;
+package atlascreator.cli;
+
+import atlascreator.Types;
+import atlascreator.Blit;
 import sys.FileSystem;
 import sys.io.File;
 import haxe.Exception;
 import haxe.io.Path;
 import haxe.ds.ReadOnlyArray;
-import tink.Cli;
 import binpacking.MaxRectsPacker;
-import Blit;
 
 using Lambda;
 
-function main()
-{
-	Cli.process(Sys.args(), new AtlasCreator()).handle(Cli.exit);
-}
-
 class AtlasCreator
 {
+#if (!no_atlascreator_cli)
+	static function main()
+	{
+		tink.Cli.process(Sys.args(), new AtlasCreator()).handle(tink.Cli.exit);
+	}
+#end
+
 	/**
 	 * The directory to read png images from.
 	 */
@@ -90,7 +93,7 @@ class AtlasCreator
 		final atlas = [];
 
 		pack(rects, atlas, 0);		
-		writeImages(atlas, threads);
+		Blit.writeImages(atlas, threads);
 		writeJson(atlas);
 	}
 
@@ -99,7 +102,9 @@ class AtlasCreator
 	 */
 	@:command public function help()
 	{
-		Sys.println(Cli.getDoc(this));
+#if (!no_atlascreator_cli)
+		Sys.println(tink.Cli.getDoc(this));
+#end
 	}
 
 	/**
@@ -267,35 +272,4 @@ class NoImagesPackedException extends Exception
 	{
 		super('No images were packed in this iteration');
 	}
-}
-
-@:structInit class Image
-{
-	public final width : Int;
-	
-	public final height : Int;
-
-	public final xPad : Int;
-
-	public final yPad : Int;
-
-	public final path : Path;
-}
-
-@:structInit class PackedImage extends Image
-{
-	public final x : Int;
-
-	public final y : Int;
-}
-
-@:structInit class PackedPage
-{
-	public final path : Path;
-
-	public final width : Int;
-
-	public final height : Int;
-
-	public final images : ReadOnlyArray<PackedImage>;
 }
