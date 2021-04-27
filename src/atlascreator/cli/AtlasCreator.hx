@@ -47,6 +47,11 @@ class AtlasCreator
 	public var format = 'png';
 
 	/**
+	 * The format of the output file describing the packed images.
+	 */
+	@:flag('data-file') @:alias('s') public var dataFile = 'json';
+
+	/**
 	 * The maximum width of a atlas texture.
 	 */
 	@:flag('width') public var maxWidth = 2048;
@@ -212,10 +217,37 @@ class AtlasCreator
 
 	function writeJson(_pages : Array<PackedPage>)
 	{
-		File.saveContent(Path.join([ output, '$name.json' ]), tink.Json.stringify({
-			name  : name,
-			pages : [ for (i => page in _pages) writePage(page, i) ]
-		}));
+		switch dataFile
+		{
+			case 'json':
+				File.saveContent(Path.join([ output, '$name.json' ]), tink.Json.stringify({
+					name  : name,
+					pages : [ for (i => page in _pages) writePage(page, i) ]
+				}));
+			case 'starling':
+				for (i in 0..._pages.length)
+				{
+					final page = _pages[i];
+					final root = Xml.createElement('TextureAtlas');
+					root.set('imagePath', page.path.toString());
+					root.set('width', Std.string(page.width));
+					root.set('height', Std.string(page.height));
+
+					for (image in page.images)
+					{
+						final child = Xml.createElement('SubTexture');
+						child.set('name', image.path.file);
+						child.set('x', Std.string(image.x + image.xPad));
+						child.set('y', Std.string(image.y + image.yPad));
+						child.set('width', Std.string(image.width));
+						child.set('height', Std.string(image.height));
+
+						root.addChild(child);
+					}
+
+					File.saveContent(Path.join([ output, '$name-$i.xml' ]), root.toString());
+				}
+		}
 	}
 
 	function writePage(_page : PackedPage, _index : Int) : PageJson
